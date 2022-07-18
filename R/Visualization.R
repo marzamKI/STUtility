@@ -294,11 +294,12 @@ ST.DimPlot <- function (
 #' @param spots Character vector with spot IDs to plot [default: all spots]
 #' @param plot.type Specify the type of plot to use [default: "spots"]. Available options are; "spots" (a "smooth" options will be added soon)
 #' @param blend Scale and blend expression values to visualize coexpression of two features (this options will override other coloring parameters).
-#' See 'Blending values' below for a more thourough description.
+#' See 'Blending values' below for a more thorough description.
 #' @param min.cutoff,max.cutoff Vector of minimum and maximum cutoff values for each feature, may specify quantile in the form of 'q##' where '##'
 #' is the quantile (eg, 'q1', 'q10'). This can be useful if you have outlier values that skew the colorscale in the plot. For example, if you specify
 #' 'q1', you will trim of values below the 1st percentile. [default: no cuttoffs]
 #' @param slot Which slot to pull the data from? [default: 'data']
+#' @param assay Specify the assay to pull data from (eg 'RNA')
 #' @param pt.size Adjust point size for plotting [default: 1]
 #' @param pt.alpha Adjust point opacity for plotting [default: 1]
 #' @param grid.ncol Number of columns for display when combining plots. This option will only have an effect on the sample level structure.
@@ -360,6 +361,7 @@ ST.FeaturePlot <- function (
   min.cutoff = NA,
   max.cutoff = NA,
   slot = "data",
+  assay = NULL,
   blend = FALSE,
   pt.size = 1,
   pt.alpha = 1,
@@ -386,6 +388,9 @@ ST.FeaturePlot <- function (
 
   # Collect data
   spots <- spots %||% colnames(x = object)
+  if(!is.null(assay)){
+    DefaultAssay(object) <- assay
+  }
   data <- FetchData(object = object, vars = c(features), cells = spots, slot = slot)
   data.type <- unique(sapply(data, class))
 
