@@ -167,7 +167,6 @@ InputFromTable <- function (
   spotFileData <- list()
   ranges.list <- NULL
   spot.diamater.list <- NULL
-  countPaths <- infotable[, "samples"]
   rownames(infotable) <- paste0(1:nrow(infotable))
   
   #
@@ -210,30 +209,58 @@ InputFromTable <- function (
   }
   
   # Parse data files and store in counts and spotFileData
-  for (i in seq_along(countPaths)) {
-    path <- countPaths[i]
-    if (verbose) cat(paste0("Loading ", path, " count matrix from a '", platforms[i], "' experiment\n"))
-    
-    if (platforms[i] == "Visium") {
-      # Load data
-      if (getExtension(path) %in% c("h5", "mtx") | dir.exists(path)) {
-        counts[[i]] <- st.load.matrix(path, visium = TRUE)
-      } else if (getExtension(path) %in% c("tsv", "tsv.gz")) {
-        counts[[i]] <- t(st.load.matrix(path))
-      } else {
-        stop("Currently only .h5, .mtx and .tsv formats are supported for Visium samples")
+  if (!is.null(infotable$samples)) {
+    countPaths <- infotable[, "samples"]
+    for (i in seq_along(countPaths)) {
+      path <- countPaths[i]
+      if (verbose) cat(paste0("Loading ", path, " count matrix from a '", platforms[i], "' experiment\n"))
+      
+      if (platforms[i] == "Visium") {
+        # Load data
+        if (getExtension(path) %in% c("h5", "mtx") | dir.exists(path)) {
+          counts[[i]] <- st.load.matrix(path, visium = TRUE)
+        } else if (getExtension(path) %in% c("tsv", "tsv.gz")) {
+          counts[[i]] <- t(st.load.matrix(path))
+        } else {
+          stop("Currently only .h5, .mtx and .tsv formats are supported for Visium samples")
+        }
       }
+    }
+  } else {
+    fragmentPaths <- infotable[, "fragments"]
+    bedpath <- infotable[, "bed"]
+    for (i in seq_along(fragmentPaths)) {
+      path <- fragmentPaths[i]
+      metadata
+      if (verbose) cat(paste0("Loading ", path, " fragment file from a '", platforms[i], "' experiment\n"))
       
+      gr <- read.table(
+        file = bedpath[i],
+        col.names = c("chr", "start", "end")
+      ) %>% makeGRangesFromDataFrame()
       
-      # Load spotdata
-      # ------------------------------------------------
-      # Check that spotfiles are provided
-      #if (!"spotfiles" %in% colnames(infotable)) stop("Spotfiles are required for 10X Visium samples", call. = FALSE)
-      if ("spotfiles" %in% colnames(infotable)) {
-        spotsData <- data.frame(parse.spot.file(infotable[i, "spotfiles"], delim = ","), stringsAsFactors = F)
-        if (ncol(spotsData) == 1) {
-          spotsData <- data.frame(parse.spot.file(infotable[i, "spotfiles"], delim = "\t"), stringsAsFactors = F)
-          if (ncol(spotsData) == 6) nms <-  c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y") else nms <- c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y", "selected")
+      # create fragment objects
+      fragments <- CreateFragmentObject(
+        path = fragmentPaths[i],
+        cells = metadata)
+      
+      counts[[i]] <- FeatureMatrix(
+        fragments = fragments,
+        features = gr,
+        cells = metadata)
+    }
+  }
+      
+      for (i in seq_along(rownames(infoTable))) {
+        # Load spotdata
+        # ------------------------------------------------
+        # Check that spotfiles are provided
+        #if (!"spotfiles" %in% colnames(infotable)) stop("Spotfiles are required for 10X Visium samples", call. = FALSE)
+        if ("spotfiles" %in% colnames(infotable)) {
+          spotsData <- data.frame(parse.spot.file(infotable[i, "spotfiles"], delim = ","), stringsAsFactors = F)
+          if (ncol(spotsData) == 1) {
+            spotsData <- data.frame(parse.spot.file(infotable[i, "spotfiles"], delim = "\t"), stringsAsFactors = F)
+            if (ncol(spotsData) == 6) nms <-  c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y") else nms <- c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y", "selected")
           spotsData <- setNames(spotsData, nm = nms)
           if (ncol(spotsData) == 7 & !disable.subset) {
             spotsData <- subset(spotsData, selected == 1)
@@ -387,7 +414,7 @@ InputFromTable <- function (
     }
     
     meta <- read.table(
-      file = ,
+      file = path_meta,
       stringsAsFactors = FALSE,
       sep = sep,
       header = TRUE,
@@ -398,7 +425,7 @@ InputFromTable <- function (
       warning("Rownames in metadata don't match colnames in count matrix")
     } else {
       rownames(meta) <- paste(rownames(meta), "_", i, sep = "")
-      meta <- meta[,colnames(m)]
+      meta <- meta[colnames(m),]
     }
   }
   
