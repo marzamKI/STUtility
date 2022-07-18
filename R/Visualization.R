@@ -388,7 +388,7 @@ ST.FeaturePlot <- function (
 
   # Collect data
   spots <- spots %||% colnames(x = object)
-  if(!is.null(assay)){
+  if (!is.null(assay)){
     DefaultAssay(object) <- assay
   }
   data <- FetchData(object = object, vars = c(features), cells = spots, slot = slot)
@@ -1814,6 +1814,7 @@ FeatureOverlay <- function (
   min.cutoff = NA,
   max.cutoff = NA,
   slot = "data",
+  assay = NULL,
   blend = FALSE,
   pt.size = 2,
   pt.alpha = 1,
@@ -1863,6 +1864,10 @@ FeatureOverlay <- function (
   if (length(x = remaining_samples) != length(x = sampleids)) warning(paste0("The selected spots are not present in all samples ", paste(sampleids, collapse = ", "), " ... \n",
                                                                              "Subsetting data to include samples ", paste(remaining_samples, collapse = ", "), "... \n"), call. = FALSE)
   # Set scale if provided
+  if (!is.null(assay)){
+    DefaultAssay(object) <- assay
+  }
+  
   if (is.numeric(value.scale) & length(value.scale) == 2) {
     value.scale.list <- rep(list(value.scale), length(features))
   } else {
