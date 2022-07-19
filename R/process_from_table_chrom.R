@@ -216,6 +216,7 @@ InputFromTable <- function (
       path <- countPaths[i]
       if (verbose) cat(paste0("Loading ", path, " count matrix from a '", platforms[i], "' experiment\n"))
       
+      # --------need to modify to allow including metadata and fragment file path
       if (platforms[i] == "Visium") if (getExtension(path) %in% c("h5", "mtx") | dir.exists(path)) {
           counts[[i]] <- st.load.matrix(path, visium = TRUE)
         } else if (getExtension(path) %in% c("tsv", "tsv.gz")) { counts[[i]] <- t(st.load.matrix(path))
@@ -226,23 +227,25 @@ InputFromTable <- function (
     bedpath <- infotable[, "bed"]
     for (i in seq_along(fragmentPaths)) {
       path <- fragmentPaths[i]
-      metadata
+      meta <- metadata[[i]]
       if (verbose) cat(paste0("Loading ", path, " fragment file from a '", platforms[i], "' experiment\n"))
       
-      gr <- read.table(
-        file = bedpath[i],
-        col.names = c("chr", "start", "end")
-      ) %>% makeGRangesFromDataFrame()
+      gr_table <- read.table(file = bedpath[i])
+      if (!ncol(gr) == 3) stop("Bed file does not have the correct format. It should contain three columns (ie. chr, start, end)") 
+      else {
+        colnames(gr_table) <- c("chr", "start", "end")
+        gr <- makeGRangesFromDataFrame(gr_table)
+      }
       
       # create fragment objects
       fragments <- CreateFragmentObject(
         path = fragmentPaths[i],
-        cells = metadata)
+        cells = meta)
       
       counts[[i]] <- FeatureMatrix(
         fragments = fragments,
         features = gr,
-        cells = metadata)
+        cells = meta)
     }
   }
   
