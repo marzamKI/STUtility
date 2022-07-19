@@ -164,6 +164,7 @@ InputFromTable <- function (
   
   # Generate empty lists
   counts <- list()
+  metadata <- list()
   spotFileData <- list()
   ranges.list <- NULL
   spot.diamater.list <- NULL
@@ -184,7 +185,7 @@ InputFromTable <- function (
     platforms <- infotable$platform
   }
   
-  # Check if Visium platform i Visium, in which case the scalefactors are required
+  # Check if platform is Visium, in which case the scalefactors are required
   if ("imgs" %in% colnames(infotable)) {
     if (any(platforms == "Visium")) {
       if ("json" %in% colnames(infotable)) {
@@ -215,18 +216,12 @@ InputFromTable <- function (
       path <- countPaths[i]
       if (verbose) cat(paste0("Loading ", path, " count matrix from a '", platforms[i], "' experiment\n"))
       
-      if (platforms[i] == "Visium") {
-        # Load data
-        if (getExtension(path) %in% c("h5", "mtx") | dir.exists(path)) {
+      if (platforms[i] == "Visium") if (getExtension(path) %in% c("h5", "mtx") | dir.exists(path)) {
           counts[[i]] <- st.load.matrix(path, visium = TRUE)
-        } else if (getExtension(path) %in% c("tsv", "tsv.gz")) {
-          counts[[i]] <- t(st.load.matrix(path))
-        } else {
-          stop("Currently only .h5, .mtx and .tsv formats are supported for Visium samples")
-        }
-      }
+        } else if (getExtension(path) %in% c("tsv", "tsv.gz")) { counts[[i]] <- t(st.load.matrix(path))
+        } else { stop("Currently only .h5, .mtx and .tsv formats are supported for Visium samples") }
     }
-  } else {
+  } else { 
     fragmentPaths <- infotable[, "fragments"]
     bedpath <- infotable[, "bed"]
     for (i in seq_along(fragmentPaths)) {
@@ -250,106 +245,131 @@ InputFromTable <- function (
         cells = metadata)
     }
   }
+  
+  for (i in seq_along(rownames(infoTable))) {
+    if ("metadata" %in% colnames(infotable)){
+      path_meta <- infotable$metadata[i]
+      if (getExtension(path_meta) %in% "csv"){ sep = ","
+      } else if (getExtension(path_meta) %in% "tsv") { sep = "\t"
+      } else stop("Currently only .csv, and .tsv formats are supported for metadata files")
       
-      for (i in seq_along(rownames(infoTable))) {
-        # Load spotdata
-        # ------------------------------------------------
-        # Check that spotfiles are provided
-        #if (!"spotfiles" %in% colnames(infotable)) stop("Spotfiles are required for 10X Visium samples", call. = FALSE)
-        if ("spotfiles" %in% colnames(infotable)) {
-          spotsData <- data.frame(parse.spot.file(infotable[i, "spotfiles"], delim = ","), stringsAsFactors = F)
-          if (ncol(spotsData) == 1) {
-            spotsData <- data.frame(parse.spot.file(infotable[i, "spotfiles"], delim = "\t"), stringsAsFactors = F)
-            if (ncol(spotsData) == 6) nms <-  c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y") else nms <- c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y", "selected")
-          spotsData <- setNames(spotsData, nm = nms)
-          if (ncol(spotsData) == 7 & !disable.subset) {
-            spotsData <- subset(spotsData, selected == 1)
-          }
-          rownames(spotsData) <- paste(spotsData[, "x"], spotsData[, "y"], sep = "x")
-          spotsData <- spotsData[intersect(rownames(spotsData), colnames(counts[[i]])), ]
-          counts[[i]] <- counts[[i]][, intersect(rownames(spotsData), colnames(counts[[i]]))]
-          spotFileData[[i]] <- spotsData
-        } else {
-          rownames(spotsData) <- as.character(spotsData[, 1])
-          # if (getExtension(path) %in% c("mtx") | dir.exists(path)){
-          #   if (length(grep(pattern = "\\-1$", x = rownames(spotsData))) > 0) {
-          #       rownames(spotsData) <- gsub(pattern = "\\-1$", replacement = "", x = rownames(spotsData))
-          #   }
-          # }
-          if (ncol(spotsData) == 6) {
-            colnames(spotsData) <- c("barcode", "selection", "adj_y", "adj_x", "pixel_y", "pixel_x")
-            #if (!disable.subset) {
-            #  spotsData <- subset(spotsData, selection == 1)
-            #}
-          } else if (ncol(spotsData) == 7 & !getExtension(path) %in% c("tsv", "tsv.gz")) {
-            colnames(spotsData) <- c("barcode", "visium", "adj_y", "adj_x", "pixel_y", "pixel_x")
-          } else if (ncol(spotsData) %in% c(6, 7) & getExtension(path) %in% c("tsv", "tsv.gz")) {
-            colnames(spotsData) <- c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y", "selection")
-            #if (!disable.subset) {
-            #  spotsData <- subset(spotsData, selected == 1)
-            #}
-          } else {
-            stop("Spotfiles format not recognized ... \n", call. = FALSE)
-          }
-          
-          # Subset data
-          spotsData[, c("adj_y", "adj_x", "pixel_y", "pixel_x")] <- apply(spotsData[, c("adj_y", "adj_x", "pixel_y", "pixel_x")], 2, as.numeric)
-          spotsData$pixel_x <- spotsData$pixel_x * scaleVisium[i]
-          spotsData$pixel_y <- spotsData$pixel_y * scaleVisium[i]
-          # Save ranges
-          ranges.list[[i]] <- sapply(spotsData[, c("pixel_x", "pixel_y")], range)
-          if (!disable.subset & "selection" %in% colnames(spotsData)) {
-            spotsData <- subset(spotsData, selection == 1)
-          }
-          
-          spotsData[, c("x", "y")] <- spotsData[, c("adj_x", "adj_y")]
-          spotsData <- spotsData[,  c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y")]
-          spotsData <- spotsData[intersect(rownames(spotsData), colnames(counts[[i]])), ]
-          counts[[i]] <- counts[[i]][, intersect(rownames(spotsData), colnames(counts[[i]]))]
-          spotFileData[[i]] <- spotsData
-        }
+      meta <- read.table(
+        file = path_meta,
+        stringsAsFactors = FALSE,
+        sep = sep,
+        header = TRUE,
+        row.names = 1
+      )
+      
+      if (length(intersect(rownames(meta), colnames(count))) == 0) {
+        warning("Rownames in metadata don't match colnames in count matrix")
       } else {
-        if (getExtension(path) %in% c("h5", "mtx") | dir.exists(path)) {
-          if (platforms[i] == "Visium") stop("Spotfiles are required for Visium data provided in .h5 or .mtx format.", call. = FALSE)
+        rownames(meta) <- paste(rownames(meta), "_", i, sep = "")
+        meta <- meta[colnames(m),]
+      }
+      metadata[[i]] <- meta
+    }
+  }
+  
+      
+  for (i in seq_along(rownames(infoTable))) {
+    # Load spotdata
+    # ------------------------------------------------
+    # Check that spotfiles are provided
+    #if (!"spotfiles" %in% colnames(infotable)) stop("Spotfiles are required for 10X Visium samples", call. = FALSE)
+    if ("spotfiles" %in% colnames(infotable)) {
+      spotsData <- data.frame(parse.spot.file(infotable[i, "spotfiles"], delim = ","), stringsAsFactors = F)
+      if (ncol(spotsData) == 1) {
+        spotsData <- data.frame(parse.spot.file(infotable[i, "spotfiles"], delim = "\t"), stringsAsFactors = F)
+        if (ncol(spotsData) == 6) nms <-  c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y") else nms <- c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y", "selected")
+        spotsData <- setNames(spotsData, nm = nms)
+        if (ncol(spotsData) == 7 & !disable.subset) {
+          spotsData <- subset(spotsData, selected == 1)
         }
-        warning(paste0("Extracting spot coordinates from gene count matrix headers. It is highly recommended to use spotfiles."), call. = FALSE)
+        rownames(spotsData) <- paste(spotsData[, "x"], spotsData[, "y"], sep = "x")
+        spotsData <- spotsData[intersect(rownames(spotsData), colnames(counts[[i]])), ]
+        counts[[i]] <- counts[[i]][, intersect(rownames(spotsData), colnames(counts[[i]]))]
+        spotFileData[[i]] <- spotsData
+      } else {
+        rownames(spotsData) <- as.character(spotsData[, 1])
+        # if (getExtension(path) %in% c("mtx") | dir.exists(path)){
+        #   if (length(grep(pattern = "\\-1$", x = rownames(spotsData))) > 0) {
+        #       rownames(spotsData) <- gsub(pattern = "\\-1$", replacement = "", x = rownames(spotsData))
+        #   }
+        # }
+        if (ncol(spotsData) == 6) {
+          colnames(spotsData) <- c("barcode", "selection", "adj_y", "adj_x", "pixel_y", "pixel_x")
+          #if (!disable.subset) {
+          #  spotsData <- subset(spotsData, selection == 1)
+          #}
+        } else if (ncol(spotsData) == 7 & !getExtension(path) %in% c("tsv", "tsv.gz")) {
+          colnames(spotsData) <- c("barcode", "visium", "adj_y", "adj_x", "pixel_y", "pixel_x")
+        } else if (ncol(spotsData) %in% c(6, 7) & getExtension(path) %in% c("tsv", "tsv.gz")) {
+          colnames(spotsData) <- c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y", "selection")
+          #if (!disable.subset) {
+          #  spotsData <- subset(spotsData, selected == 1)
+          #}
+        } else {
+          stop("Spotfiles format not recognized ... \n", call. = FALSE)
+        }
         
-        # Check if headers can be extracted
-        spotsData <- GetCoords(colnames(counts[[i]]), delim = "x|_")
-        if (ncol(spotsData) != 2) stop("Headers are not valid. You have to provide spotfiles or make sure that headers contains (x, y) coordinates", call. = FALSE)
+        # Subset data
+        spotsData[, c("adj_y", "adj_x", "pixel_y", "pixel_x")] <- apply(spotsData[, c("adj_y", "adj_x", "pixel_y", "pixel_x")], 2, as.numeric)
+        spotsData$pixel_x <- spotsData$pixel_x * scaleVisium[i]
+        spotsData$pixel_y <- spotsData$pixel_y * scaleVisium[i]
+        # Save ranges
+        ranges.list[[i]] <- sapply(spotsData[, c("pixel_x", "pixel_y")], range)
+        if (!disable.subset & "selection" %in% colnames(spotsData)) {
+          spotsData <- subset(spotsData, selection == 1)
+        }
+        
+        spotsData[, c("x", "y")] <- spotsData[, c("adj_x", "adj_y")]
+        spotsData <- spotsData[,  c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y")]
+        spotsData <- spotsData[intersect(rownames(spotsData), colnames(counts[[i]])), ]
+        counts[[i]] <- counts[[i]][, intersect(rownames(spotsData), colnames(counts[[i]]))]
         spotFileData[[i]] <- spotsData
       }
     } else {
-      if (transpose) {
-        counts[[i]] <- t(st.load.matrix(path))
-      } else{
-        counts[[i]] <- st.load.matrix(path)
+      if (getExtension(path) %in% c("h5", "mtx") | dir.exists(path)) {
+        if (platforms[i] == "Visium") stop("Spotfiles are required for Visium data provided in .h5 or .mtx format.", call. = FALSE)
       }
+      warning(paste0("Extracting spot coordinates from gene count matrix headers. It is highly recommended to use spotfiles."), call. = FALSE)
       
-      # Load spotdata
-      # ------------------------------------------------
-      if ("spotfiles" %in% colnames(infotable)){
-        spotsData <- as.data.frame(parse.spot.file(infotable[i, "spotfiles"]))
-        if ("selected" %in% colnames(spotsData)) {
-          spotsData <- subset(spotsData, selected == 1)
-          spotsData$selected <- NULL
-        }
-        spotsData <- setNames(spotsData, nm = c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y"))
-        rownames(spotsData) <- paste(spotsData$x, spotsData$y, sep = "x")
-        intersecting.spots <- intersect(rownames(spotsData), colnames(counts[[i]]))
-        spotsData <- spotsData[intersecting.spots, ]
-        counts[[i]] <- counts[[i]][, intersecting.spots]
-        spotFileData[[i]] <- spotsData #Save pixel coords etc
-      } else {
-        # Obtain x/y coordinates from headers
-        spotsData <- GetCoords(colnames(counts[[i]]), delim = "x|_")
-        if (ncol(spotsData) != 2) stop("No spotfiles provided and the headers are invalid. Please make sure that the count matrices are correct.")
-        spotFileData[[i]] <- spotsData
-      }
+      # Check if headers can be extracted
+      spotsData <- GetCoords(colnames(counts[[i]]), delim = "x|_")
+      if (ncol(spotsData) != 2) stop("Headers are not valid. You have to provide spotfiles or make sure that headers contains (x, y) coordinates", call. = FALSE)
+      spotFileData[[i]] <- spotsData
+    }
+  } else {
+    if (transpose) {
+      counts[[i]] <- t(st.load.matrix(path))
+    } else{
+      counts[[i]] <- st.load.matrix(path)
     }
     
+    # Load spotdata
+    # ------------------------------------------------
+    if ("spotfiles" %in% colnames(infotable)){
+      spotsData <- as.data.frame(parse.spot.file(infotable[i, "spotfiles"]))
+      if ("selected" %in% colnames(spotsData)) {
+        spotsData <- subset(spotsData, selected == 1)
+        spotsData$selected <- NULL
+      }
+      spotsData <- setNames(spotsData, nm = c("x", "y", "adj_x", "adj_y", "pixel_x", "pixel_y"))
+      rownames(spotsData) <- paste(spotsData$x, spotsData$y, sep = "x")
+      intersecting.spots <- intersect(rownames(spotsData), colnames(counts[[i]]))
+      spotsData <- spotsData[intersecting.spots, ]
+      counts[[i]] <- counts[[i]][, intersecting.spots]
+      spotFileData[[i]] <- spotsData #Save pixel coords etc
+    } else {
+      # Obtain x/y coordinates from headers
+      spotsData <- GetCoords(colnames(counts[[i]]), delim = "x|_")
+      if (ncol(spotsData) != 2) stop("No spotfiles provided and the headers are invalid. Please make sure that the count matrices are correct.")
+      spotFileData[[i]] <- spotsData
+    }
   }
   
+
   # ---- Merge counts
   genes <- c()
   for (count in counts)
@@ -403,31 +423,8 @@ InputFromTable <- function (
     }
   }
   
-  if ("metadata" %in% colnames(infotable)){
-    path_meta <- infotable$metadata[[i]]
-    if (getExtension(path_meta) %in% "csv"){
-      sep = ","
-    } else if (getExtension(path_meta) %in% "tsv") {
-      sep = "\t"
-    } else {
-      stop("Currently only .csv, and .tsv formats are supported for metadata files")
-    }
-    
-    meta <- read.table(
-      file = path_meta,
-      stringsAsFactors = FALSE,
-      sep = sep,
-      header = TRUE,
-      row.names = 1
-    )
-    
-    if (length(intersect(rownames(meta), colnames(count))) == 0) {
-      warning("Rownames in metadata don't match colnames in count matrix")
-    } else {
-      rownames(meta) <- paste(rownames(meta), "_", i, sep = "")
-      meta <- meta[colnames(m),]
-    }
-  }
+  #----------metadata here??
+  
   
   # Convert gene symbols if an annotation file is provided
   if (!is.null(annotation)) {
