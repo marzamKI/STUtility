@@ -123,7 +123,7 @@ parse.spot.file = function(path, delim = "\t") {
 #'
 #' @export
 
-InputFromTable <- function (
+InputFromTableChromatin <- function (
     infotable,
     transpose = TRUE,
     minUMICountsPerGene = 0,
@@ -186,6 +186,7 @@ InputFromTable <- function (
   }
   
   # Check if platform is Visium, in which case the scalefactors are required
+  # ------------fix scale factor, as it is now we don't generate json files.
   if ("imgs" %in% colnames(infotable)) {
     if (any(platforms == "Visium")) {
       if ("json" %in% colnames(infotable)) {
@@ -216,15 +217,17 @@ InputFromTable <- function (
       path <- countPaths[i]
       if (verbose) cat(paste0("Loading ", path, " count matrix from a '", platforms[i], "' experiment\n"))
       
-      # --------need to modify to allow including metadata and fragment file path
       if (platforms[i] == "Visium") if (getExtension(path) %in% c("h5", "mtx") | dir.exists(path)) {
           counts[[i]] <- st.load.matrix(path, visium = TRUE)
         } else if (getExtension(path) %in% c("tsv", "tsv.gz")) { counts[[i]] <- t(st.load.matrix(path))
         } else { stop("Currently only .h5, .mtx and .tsv formats are supported for Visium samples") }
     }
   } else { 
+    if(is.null(infotable$fragments)) stop("Please provide fragments file")
+    if(is.null(infotable$bed)) stop("Please provide bed file")
     fragmentPaths <- infotable[, "fragments"]
     bedpath <- infotable[, "bed"]
+    
     for (i in seq_along(fragmentPaths)) {
       path <- fragmentPaths[i]
       meta <- metadata[[i]]
@@ -264,13 +267,8 @@ InputFromTable <- function (
         row.names = 1
       )
       
-      if (length(intersect(rownames(meta), colnames(count))) == 0) {
-        warning("Rownames in metadata don't match colnames in count matrix")
-      } else {
-        rownames(meta) <- paste(rownames(meta), "_", i, sep = "")
-        meta <- meta[colnames(m),]
-      }
       metadata[[i]] <- meta
+
     }
   }
   
@@ -426,7 +424,14 @@ InputFromTable <- function (
     }
   }
   
-  #----------metadata here??
+  meta <- metadata[[i]]
+  if (length(intersect(rownames(meta), colnames(count))) == 0) {
+    warning("Rownames in metadata don't match colnames in count matrix")
+  } else {
+    rownames(meta) <- paste(rownames(meta), "_", i, sep = "")
+    meta <- meta[colnames(m),]
+  }
+  metadata[[i]] <- meta
   
   
   # Convert gene symbols if an annotation file is provided
