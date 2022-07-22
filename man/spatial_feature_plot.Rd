@@ -49,18 +49,14 @@ spatial_feature_plot(
 run the \code{\link{rasterlists}} function on your Seurat object. If the type is not specified, the images will be prioritized in the following
 order if they are available; "processed", "masked" and "raw".}
 
-\item{min.cutoff}{Vector of minimum and maximum cutoff values for each feature, may specify quantile in the form of 'q##' where '##'
-is the quantile (eg, 'q1', 'q10'). This can be useful if you have outlier values that skew the colorscale in the plot. For example, if you specify
-'q1', you will trim of values below the 1st percentile. [default: no cuttoffs]}
-
-\item{max.cutoff}{Vector of minimum and maximum cutoff values for each feature, may specify quantile in the form of 'q##' where '##'
+\item{min.cutoff, max.cutoff}{Vector of minimum and maximum cutoff values for each feature, may specify quantile in the form of 'q##' where '##'
 is the quantile (eg, 'q1', 'q10'). This can be useful if you have outlier values that skew the colorscale in the plot. For example, if you specify
 'q1', you will trim of values below the 1st percentile. [default: no cuttoffs]}
 
 \item{slot}{Which slot to pull expression data from? [dafault: 'data']}
 
 \item{blend}{Scale and blend expression values to visualize coexpression of two features (this options will override other coloring parameters).
-See 'Blending values' below for a more thourough description.}
+See 'Blending values' below for a more thorough description.}
 
 \item{pt.size}{Point size of each ST spot [default: 1]}
 

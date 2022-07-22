@@ -14,6 +14,7 @@ ST.FeaturePlot(
   min.cutoff = NA,
   max.cutoff = NA,
   slot = "data",
+  assay = NULL,
   blend = FALSE,
   pt.size = 1,
   pt.alpha = 1,
@@ -58,8 +59,10 @@ is the quantile (eg, 'q1', 'q10'). This can be useful if you have outlier values
 
 \item{slot}{Which slot to pull the data from? [default: 'data']}
 
+\item{assay}{Specify the assay to pull data from (eg 'RNA')}
+
 \item{blend}{Scale and blend expression values to visualize coexpression of two features (this options will override other coloring parameters).
-See 'Blending values' below for a more thourough description.}
+See 'Blending values' below for a more thorough description.}
 
 \item{pt.size}{Adjust point size for plotting [default: 1]}
 

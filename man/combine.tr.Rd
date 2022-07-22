@@ -13,9 +13,7 @@ combine.tr(center.cur, center.new, alpha, mirror.x = FALSE, mirror.y = FALSE)
 
 \item{alpha}{Rotation angle}
 
-\item{mirror.x}{Logical: mirrors x or y axis if set to TRUE}
-
-\item{mirror.y}{Logical: mirrors x or y axis if set to TRUE}
+\item{mirror.x, mirror.y}{Logical: mirrors x or y axis if set to TRUE}
 }
 \description{
 Combines rigid tranformation matrices in the following order:
