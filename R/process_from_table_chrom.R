@@ -144,6 +144,7 @@ InputFromTableChromatin <- function (
 ){
   
   #  # Check deprecated arguments
+  # using ellipsis for passing arguments to signac function now
   #####
   #  additional_args <- list(...)
   #  if ("min.gene.count" %in% names(additional_args)) {
@@ -219,18 +220,18 @@ InputFromTableChromatin <- function (
   for (i in seq_along(rownames(infotable))) {
     if ("metadata" %in% colnames(infotable)){
       path_meta <- infotable$metadata[i]
+      
       if (getExtension(path_meta) %in% "csv"){ sep_use = ","
       } else if (getExtension(path_meta) %in% "tsv") { sep_use = "\t"
       } else stop("Currently only .csv, and .tsv formats are supported for metadata files")
       
-      meta <- read.table(
+      metadata[[i]] <- read.table(
         file = path_meta,
         stringsAsFactors = FALSE,
         sep = sep_use,
         header = TRUE,
         row.names = 1
       )
-      metadata[[i]] <- meta
     }
   }
   
@@ -380,10 +381,7 @@ InputFromTableChromatin <- function (
   genes <- c()
   for (count in counts)
     genes <- union(genes, rownames(count))
-  
-  # Check that some genes were found
-  if (length(x = Reduce(intersect, lapply(counts, rownames))) == 0) stop("No intersecting genes found across experiment. Please make sure that the count matrices have the same symbols")
-  
+
   # Generate empty merged count matrix
   samples <- c()
   cnt <- as(matrix(0, nrow = length(genes), ncol = 0), "dgCMatrix")
@@ -418,30 +416,12 @@ InputFromTableChromatin <- function (
   meta_data_staffli$original_x <- meta_data_staffli$pixel_x
   meta_data_staffli$original_y <- meta_data_staffli$pixel_y
   
-  # Create an empty meta data table for Seurat
-  meta_data_seurat <- data.frame(row.names = rownames(meta_data_staffli))
-  
-  #----- Add metadata from infotable to Seurat meta data table
-  metaData <- infotable[, -which(colnames(infotable) %in% c("samples", "spotfiles", "imgs")), drop = F]
-  if (ncol(metaData) >= 1){
-    for (column in colnames(metaData)){
-      meta_data_seurat[, column] <- metaData[samples, column]
-    }
-  }
-  
-  meta <- metadata[[i]]
-  if (length(intersect(rownames(meta), colnames(count))) == 0) {
-    warning("Rownames in metadata don't match colnames in count matrix")
-  } else {
-    rownames(meta) <- paste(rownames(meta), "_", i, sep = "")
-    meta <- meta[colnames(m),]
-  }
-  
-  if (!is.null(meta_data_seurat) & !is.null(meta)){
-    meta_all <- merge(meta_data_seurat, meta, by = 0)
-  } else if (is.null(meta)) meta_all <- meta_data_seurat
-  
-  #merge meta
+  # Add seurat metadata
+  meta_data_seurat <- do.call(rbind, lapply(seq_along(metadata), function(i) {
+    x <- metadata[[i]]
+    rownames(x) <- paste(rownames(x), "_", i, sep = "")
+    return(x)
+  }))
   
   # Convert gene symbols if an annotation file is provided
   if (!is.null(annotation)) {
@@ -483,21 +463,32 @@ InputFromTableChromatin <- function (
     cat(paste("  Genes removed: ", before[1] - after[1], " \n"))
   }
   
+  # create seurat object from chromatin assay and add fragment files
   chrom_assay <- CreateChromatinAssay(
     counts = cnt,
     sep = c(":", "-"),
     ...
   )
   
-  
   m <- CreateSeuratObject(
     counts = chrom_assay,
     assay = assay.name,
-    meta.data = meta_all
+    meta.data = meta_data_seurat
   )
   
-  #fragments[[i]]@cells <- paste(fragments[[i]]@cells, "_", i, sep = "")
-  #Fragments(m) <- fragments[[i]]
+  if (is.null(names(fragments))) {
+    for (i in seq_along(rownames(infotable))) {
+      fragments[[i]] <- CreateFragmentObject(
+        path = infotable$fragments[i],
+        cells = colnames(counts[[i]])) 
+    }
+  }
+  
+  for (i in seq_along(rownames(infotable))) {
+    names(fragments[[i]]@cells) <- paste(names(fragments[[i]]@cells), "_", i, sep = "")
+    Fragments(m) <- fragments[[i]]
+  }
+  
   
   # Filter top genes
   if (topN > 0){
