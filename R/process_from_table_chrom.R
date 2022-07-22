@@ -1,4 +1,4 @@
-#' @importFrom Signac CreateChromatinAssay
+#' @importFrom Signac CreateChromatinAssay CreateFragmentObject FeatureMatrix
 #' @importFrom Seurat CreateSeuratObject
 #' @importFrom GenomicRanges makeGRangesFromDataFrame
 "_PACKAGE"

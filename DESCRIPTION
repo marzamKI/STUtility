@@ -87,4 +87,5 @@ Collate:
   'manual_annotation.R'
   'pre_processing.R'
   'process_from_table.R'
+  'process_from_table_chrom.R'
   'utilities.R'
