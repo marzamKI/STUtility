@@ -43,7 +43,9 @@ Imports:
   patchwork,
   spatstat.core,
   spatstat.geom,
-  shinyjs
+  shinyjs,
+  GenomicRanges,
+  Signac
 Remotes:
   linxihui/NNLM
 Suggests: 
